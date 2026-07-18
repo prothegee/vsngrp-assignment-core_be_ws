@@ -4,6 +4,7 @@ services:
   redis:
     image: redis:8
     container_name: vsngrp-core-be-ws-redis
+    restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - ./redis/data:/data
