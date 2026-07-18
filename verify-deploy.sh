@@ -46,6 +46,7 @@ echo "verify-deploy: CORS allowlist ok"
 
 echo "verify-deploy: checking WS handshake"
 WS_STATUS=$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 \
+    --http1.1 \
     -H "Connection: Upgrade" \
     -H "Upgrade: websocket" \
     -H "Sec-WebSocket-Version: 13" \
