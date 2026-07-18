@@ -28,11 +28,6 @@ jobs:
               exit 1
             fi
 
-            if ! docker network inspect vsngrp-core-be-ws_default >/dev/null 2>&1; then
-              echo "deploy: ERROR, docker network vsngrp-core-be-ws_default not found, run containers.sh up on the host before deploying this service"
-              exit 1
-            fi
-
             DEPLOY_PATH="${{ secrets.CORE_BE_WS_DEPLOY_PATH }}"
             if [ ! -d "$DEPLOY_PATH/.git" ]; then
               echo "deploy: $DEPLOY_PATH does not exist, cloning"
@@ -43,6 +38,8 @@ jobs:
             git fetch origin main-stable
             git checkout main-stable
             git reset --hard origin/main-stable
+
+            ./containers.sh up
 
             CONFIG_PATH="${{ secrets.CORE_BE_WS_CONFIG_PATH }}"
             if [ ! -f "$CONFIG_PATH" ]; then
