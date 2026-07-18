@@ -1,0 +1,32 @@
+name: ci
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: restore
+        run: dotnet restore VsngrpCoreBeWs.slnx
+
+      - name: build
+        run: dotnet build VsngrpCoreBeWs.slnx --no-restore --configuration Release
+
+      - name: lint
+        run: dotnet format --verify-no-changes
+
+      - name: test
+        run: ./run-tests.sh
+
+      - name: docker build check
+        run: docker build --build-arg GIT_SHA=${{ github.sha }} -t vsngrp-core-be-ws:ci .
