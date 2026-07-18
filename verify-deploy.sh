@@ -51,7 +51,7 @@ WS_STATUS=$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 \
     -H "Upgrade: websocket" \
     -H "Sec-WebSocket-Version: 13" \
     -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
-    "https://${DOMAIN}/ws/chat")
+    "https://${DOMAIN}/ws/chat" || true)
 
 if [ "$WS_STATUS" != "101" ]; then
     echo "verify-deploy: FAIL, WS handshake returned '${WS_STATUS}', expected '101'"
