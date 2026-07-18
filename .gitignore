@@ -16,6 +16,7 @@
 .zig-pkg
 
 bin
+obj
 tmp
 out
 log
@@ -30,6 +31,19 @@ zig-out
 zig-pkg
 
 ##
+## dotnet
+##
+.vs
+.idea
+TestResults
+
+*.user
+*.userosscache
+*.suo
+*.userprefs
+*.dotCover
+
+##
 ## extension
 ##
 *.bak*
@@ -41,6 +55,9 @@ zig-pkg
 ## file: include
 ##
 common_check.*
+config/config.json
+containers/redis/data/*
+!containers/redis/data/.gitkeep
 
 ##
 ## file: exclude
