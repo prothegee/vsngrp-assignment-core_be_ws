@@ -1,0 +1,19 @@
+{
+  "port": 9002,
+  "version": "0.1.0",
+  "jwtSecret": "CHANGE_THIS",
+  "redis": {
+    "connectionString": "CHANGE_THIS"
+  },
+  "sessionRedis": {
+    "connectionString": "CHANGE_THIS"
+  },
+  "deepSeek": {
+    "apiKey": "CHANGE_THIS",
+    "baseUrl": "https://api.deepseek.com",
+    "model": "deepseek-v4-flash",
+    "dailyTokenBudgetPerAccount": 100000,
+    "maxConcurrentRequests": 200
+  },
+  "corsAllowedOrigins": ["http://localhost:9003"]
+}
