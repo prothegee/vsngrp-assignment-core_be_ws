@@ -28,7 +28,13 @@ jobs:
               exit 1
             fi
 
-            cd ${{ secrets.CORE_BE_WS_DEPLOY_PATH }}
+            DEPLOY_PATH="${{ secrets.CORE_BE_WS_DEPLOY_PATH }}"
+            if [ ! -d "$DEPLOY_PATH/.git" ]; then
+              echo "deploy: $DEPLOY_PATH does not exist, cloning"
+              git clone git@github.com:prothegee/vsngrp-assignment-core_be_ws.git "$DEPLOY_PATH"
+            fi
+
+            cd "$DEPLOY_PATH"
             git fetch origin main-stable
             git checkout main-stable
             git reset --hard origin/main-stable
