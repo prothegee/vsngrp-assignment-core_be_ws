@@ -56,7 +56,7 @@ The EC2 security group only opens `22` (SSH), `80`, and `443`. Everything else, 
 | `CORE_BE_WS_SED_DEEPSEEK_API_KEY` | the DeepSeek API key |
 | `CORE_BE_WS_SED_ALLOWED_ORIGINS` | the `corsAllowedOrigins` JSON array, `["https://vsngrp-fec.prothegee.dev"]` in prod |
 
-The `CORE_BE_WS_SED_*` secrets are read whenever `CORE_BE_WS_CONFIG_PATH` does not exist yet, or its `corsAllowedOrigins` field is not a valid JSON array, and `cd.yml` (re)creates the file from the template in either case. To rotate a value later (a leaked key, a rotated DeepSeek key), edit `config.json` directly on the instance, or delete it and let the next deploy recreate and reseed it from the current secrets.
+The `CORE_BE_WS_SED_*` secrets are read whenever `CORE_BE_WS_CONFIG_PATH` does not exist yet, or its contents are not valid JSON, and `cd.yml` (re)creates the file from the template in either case. If the file is still not valid JSON after reseeding, the secrets themselves contain invalid JSON syntax, `cd.yml` fails the deploy immediately rather than mounting a broken config into the container. To rotate a value later (a leaked key, a rotated DeepSeek key), edit `config.json` directly on the instance, or delete it and let the next deploy recreate and reseed it from the current secrets.
 
 <br>
 
@@ -68,14 +68,15 @@ The `CORE_BE_WS_SED_*` secrets are read whenever `CORE_BE_WS_CONFIG_PATH` does n
    - checks that `PROXY_CONF_D_PATH` (the shared reverse proxy's `conf.d` folder) exists, and fails the deploy immediately if it does not
    - pulls the latest `main-stable`
    - brings up this service's own datastore containers (`./containers.sh up`)
-   - if `CORE_BE_WS_CONFIG_PATH` does not exist yet, or its `corsAllowedOrigins` field is not a valid JSON array, (re)creates it from `config/config.json.template` and seeds `jwtSecret`, `redis`, `sessionRedis`, `deepSeek.apiKey`, and `corsAllowedOrigins` from the `CORE_BE_WS_SED_*` secrets
+   - if `CORE_BE_WS_CONFIG_PATH` does not exist yet, or its contents are not valid JSON, (re)creates it from `config/config.json.template` and seeds `jwtSecret`, `redis`, `sessionRedis`, `deepSeek.apiKey`, and `corsAllowedOrigins` from the `CORE_BE_WS_SED_*` secrets
+   - fails the deploy immediately if the config is still not valid JSON after reseeding
    - checks that `corsAllowedOrigins` in that config includes the production Core FE origin (`https://vsngrp-fec.prothegee.dev`), and fails the deploy immediately if it does not
    - builds the image with `--build-arg GIT_SHA=$(git rev-parse --short HEAD)`
    - stops and replaces the running app container
    - copies this service's own `nginx/vsngrp-bews.conf` into `PROXY_CONF_D_PATH` and reloads the `vsngrp-reverse-proxy` container
    - runs `verify-deploy.sh`
 
-The config file is never baked into the image. It is mounted read-only from the path in `CORE_BE_WS_CONFIG_PATH` at container start. The first deploy creates and seeds it automatically, every deploy after that just reuses the existing file, unless its `corsAllowedOrigins` field is malformed, in which case `cd.yml` recreates and reseeds it from the current secrets instead of deploying a broken config.
+The config file is never baked into the image. It is mounted read-only from the path in `CORE_BE_WS_CONFIG_PATH` at container start. The first deploy creates and seeds it automatically, every deploy after that just reuses the existing file, unless it is not valid JSON, in which case `cd.yml` recreates and reseeds it from the current secrets instead of deploying a broken config.
 
 The app container joins this service's own Compose network (`vsngrp-core-be-ws_default`), not Core BE's, since it only needs to reach Core BE's session Redis over `127.0.0.1`, not over that other stack's internal network.
 
