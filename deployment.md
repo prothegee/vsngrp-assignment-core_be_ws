@@ -67,6 +67,7 @@ The `CORE_BE_WS_SED_*` secrets are only read once, when `CORE_BE_WS_CONFIG_PATH`
 3. Merging into `main-stable` triggers `cd.yml`, which connects over SSH and:
    - checks that `PROXY_CONF_D_PATH` (the shared reverse proxy's `conf.d` folder) exists, and fails the deploy immediately if it does not
    - pulls the latest `main-stable`
+   - brings up this service's own datastore containers (`./containers.sh up`)
    - if `CORE_BE_WS_CONFIG_PATH` does not exist yet, creates it from `config/config.json.template` and seeds `jwtSecret`, `redis`, `sessionRedis`, `deepSeek.apiKey`, and `corsAllowedOrigins` from the `CORE_BE_WS_SED_*` secrets
    - checks that `corsAllowedOrigins` in that config includes the production Core FE origin (`https://vsngrp-fec.prothegee.dev`), and fails the deploy immediately if it does not
    - builds the image with `--build-arg GIT_SHA=$(git rev-parse --short HEAD)`
