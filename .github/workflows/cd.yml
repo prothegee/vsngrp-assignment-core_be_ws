@@ -42,8 +42,9 @@ jobs:
             ./containers.sh up
 
             CONFIG_PATH="${{ secrets.CORE_BE_WS_CONFIG_PATH }}"
-            if [ ! -f "$CONFIG_PATH" ]; then
-              echo "deploy: $CONFIG_PATH does not exist, creating from config/config.json.template"
+
+            seed_config() {
+              echo "deploy: (re)creating $CONFIG_PATH from config/config.json.template"
               mkdir -p "$(dirname "$CONFIG_PATH")"
               cp config/config.json.template "$CONFIG_PATH"
 
@@ -52,6 +53,14 @@ jobs:
               sed -i "0,/\"connectionString\": \"CHANGE_THIS\"/{s|\"connectionString\": \"CHANGE_THIS\"|\"connectionString\": \"${{ secrets.CORE_BE_WS_SED_CONFIG_SESSION_RD }}\"|}" "$CONFIG_PATH"
               sed -i "s|\"apiKey\": \"CHANGE_THIS\"|\"apiKey\": \"${{ secrets.CORE_BE_WS_SED_DEEPSEEK_API_KEY }}\"|" "$CONFIG_PATH"
               sed -i "s|\"corsAllowedOrigins\": \[.*\]|\"corsAllowedOrigins\": ${{ secrets.CORE_BE_WS_SED_ALLOWED_ORIGINS }}|" "$CONFIG_PATH"
+            }
+
+            if [ ! -f "$CONFIG_PATH" ]; then
+              echo "deploy: $CONFIG_PATH does not exist"
+              seed_config
+            elif ! grep -q '"corsAllowedOrigins": \[.*\]' "$CONFIG_PATH"; then
+              echo "deploy: $CONFIG_PATH has a malformed corsAllowedOrigins field"
+              seed_config
             fi
 
             CORS_ORIGINS=$(grep -o '"corsAllowedOrigins"[^]]*\]' "$CONFIG_PATH")
