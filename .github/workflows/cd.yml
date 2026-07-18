@@ -43,6 +43,10 @@ jobs:
 
             CONFIG_PATH="${{ secrets.CORE_BE_WS_CONFIG_PATH }}"
 
+            config_is_valid_json() {
+              python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$CONFIG_PATH" >/dev/null 2>&1
+            }
+
             seed_config() {
               echo "deploy: (re)creating $CONFIG_PATH from config/config.json.template"
               mkdir -p "$(dirname "$CONFIG_PATH")"
@@ -58,9 +62,14 @@ jobs:
             if [ ! -f "$CONFIG_PATH" ]; then
               echo "deploy: $CONFIG_PATH does not exist"
               seed_config
-            elif ! grep -q '"corsAllowedOrigins": \[.*\]' "$CONFIG_PATH"; then
-              echo "deploy: $CONFIG_PATH has a malformed corsAllowedOrigins field"
+            elif ! config_is_valid_json; then
+              echo "deploy: $CONFIG_PATH is not valid JSON"
               seed_config
+            fi
+
+            if ! config_is_valid_json; then
+              echo "deploy: ERROR, $CONFIG_PATH is still not valid JSON after reseeding, check the CORE_BE_WS_SED_* secrets for valid JSON syntax, e.g. corsAllowedOrigins needs quoted strings: [\"https://vsngrp-fec.prothegee.dev\"]"
+              exit 1
             fi
 
             CORS_ORIGINS=$(grep -o '"corsAllowedOrigins"[^]]*\]' "$CONFIG_PATH")
