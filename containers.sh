@@ -28,6 +28,17 @@ usage() {
 
 cmd_up() {
     docker compose -f "$COMPOSE_FILE" up -d
+
+    if ! all_running; then
+        echo "containers: ERROR, not all containers are running after up" >&2
+        for name in "${CONTAINER_NAMES[@]}"; do
+            if [ "$(docker inspect -f '{{.State.Running}}' "$name" 2>/dev/null)" != "true" ]; then
+                echo "containers: $name is not running, last 20 log lines:" >&2
+                docker logs --tail 20 "$name" >&2 || true
+            fi
+        done
+        exit 1
+    fi
 }
 
 cmd_down() {
