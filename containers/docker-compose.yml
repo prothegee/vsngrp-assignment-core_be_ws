@@ -1,0 +1,11 @@
+name: vsngrp-core-be-ws
+
+services:
+  redis:
+    image: redis:8
+    container_name: vsngrp-core-be-ws-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - ./redis/data:/data
+    ports:
+      - "127.0.0.1:6380:6379"

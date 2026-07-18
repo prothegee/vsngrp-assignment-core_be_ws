@@ -1,0 +1,8 @@
+src/bin
+src/obj
+tests
+containers
+config/config.json
+.git
+.gitignore
+*.md
