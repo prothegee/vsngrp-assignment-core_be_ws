@@ -1,15 +1,22 @@
 name: cd
 
 on:
+  push:
+    branches:
+      - main-stable
   pull_request:
     types:
       - closed
     branches:
       - main-stable
 
+concurrency:
+  group: cd-main-stable
+  cancel-in-progress: false
+
 jobs:
   deploy:
-    if: github.event.pull_request.merged == true
+    if: github.event_name == 'push' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
 
     steps:

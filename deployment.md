@@ -63,8 +63,8 @@ The `CORE_BE_WS_SED_*` secrets are read whenever `CORE_BE_WS_CONFIG_PATH` does n
 ## Deploy flow
 
 1. Open a pull request into `main`. `ci.yml` must pass (build, lint, tests, Docker build check).
-2. Once `main` is green and ready to ship, open a pull request from `main` into `main-stable` and approve it.
-3. Merging into `main-stable` triggers `cd.yml`, which connects over SSH and:
+2. Once `main` is green and ready to ship, promote it into `main-stable`, either by merging a pull request from `main` into `main-stable`, or by pushing directly to `main-stable`.
+3. Any push to `main-stable` triggers `cd.yml` (a PR merge is itself a push under the hood, so both paths use the same trigger), which connects over SSH and:
    - checks that `PROXY_CONF_D_PATH` (the shared reverse proxy's `conf.d` folder) exists, and fails the deploy immediately if it does not
    - pulls the latest `main-stable`
    - brings up this service's own datastore containers (`./containers.sh up`)
