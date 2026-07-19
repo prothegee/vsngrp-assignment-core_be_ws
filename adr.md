@@ -177,3 +177,11 @@ Reason: sir wants every datastore, Postgres and Redis alike, to require real aut
 Decision: `verify-deploy.sh` now takes the live `config.json` path as a second argument, reads the actual `redis` and `sessionRedis` connection strings out of it, and attempts a real `redis-cli PING` via `docker exec` into `vsngrp-core-be-ws-redis` and `vsngrp-core-be-redis` respectively. Any auth failure fails the deploy step immediately, `cd.yml`'s "verify deploy" step now also passes `CORE_BE_WS_CONFIG_PATH` through as an env var for this purpose.
 
 Reason: `config_is_valid_json` only ever proved the file parses as JSON, it never proved the credentials inside it actually work against the live Redis instances, matching Core BE's own ADR 020, exactly the class of mistake that broke signup this round on the sibling service.
+
+<br>
+
+## ADR 023: a system prompt forces DeepSeek to match the user's language
+
+Decision: `ChatWebSocketHandler` now prepends a `system`-role message (a fixed instruction: reply in the same language as the user's message, default to English if ambiguous) to every DeepSeek call, built fresh in memory for that one API call only, never written to `chatLogService` and never counted toward the 100-message-per-conversation cap or replayed to the client.
+
+Reason: DeepSeek (no system prompt at all previously) replied to a plain "hello" in Mandarin in production, confirmed reproducible 3 out of 3 tries against the real API. The exact same 3 tries with the system prompt added came back in English every time. DeepSeek is developed in China and defaults toward Chinese on short, language-ambiguous input without an explicit instruction otherwise.
