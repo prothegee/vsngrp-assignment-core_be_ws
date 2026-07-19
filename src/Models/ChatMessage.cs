@@ -2,6 +2,7 @@ namespace VsngrpCoreBeWs.Models;
 
 public static class ChatMessageRole
 {
+    public const string System = "system";
     public const string User = "user";
     public const string Assistant = "assistant";
 }

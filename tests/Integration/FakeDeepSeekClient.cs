@@ -10,12 +10,14 @@ public sealed class FakeDeepSeekClient : IDeepSeekClient
     public long TotalTokens { get; set; } = 42;
     public bool ThrowOnStream { get; set; }
     public int CallCount { get; private set; }
+    public IReadOnlyList<ChatMessage> LastMessages { get; private set; } = [];
 
     public async IAsyncEnumerable<DeepSeekStreamChunk> StreamCompletionAsync(
         IReadOnlyList<ChatMessage> messages,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         CallCount++;
+        LastMessages = messages;
 
         if (ThrowOnStream)
         {

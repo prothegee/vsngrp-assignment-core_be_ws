@@ -95,6 +95,29 @@ public sealed class ChatWebSocketTests(ChatWebSocketTestFixture fixture) : IClas
     }
 
     [Fact]
+    public async Task SendMessage_PrependsLanguageSystemPromptWithoutPersistingIt()
+    {
+        fixture.FakeDeepSeekClient.ThrowOnStream = false;
+        fixture.FakeDeepSeekClient.ResponseChunks = ["Hel", "lo!"];
+        var (socket, _) = await ConnectAndAuthenticateAsync();
+        using var owned = socket;
+        var conversationId = await CreateConversationAsync(owned);
+
+        await SendAsync(owned, new { type = "send_message", conversationId, content = "hi there" });
+        await ReceiveAsync(owned);
+        await ReceiveAsync(owned);
+        await ReceiveAsync(owned);
+
+        var sentMessages = fixture.FakeDeepSeekClient.LastMessages;
+        Assert.Equal(ChatMessageRole.System, sentMessages[0].Role);
+        Assert.Equal("hi there", sentMessages[1].Content);
+
+        await SendAsync(owned, new { type = "open_conversation", conversationId });
+        var history = await ReceiveAsync(owned);
+        Assert.Equal(2, history.GetProperty("messages").GetArrayLength());
+    }
+
+    [Fact]
     public async Task SendMessage_AccountOverBudget_ReturnsErrorWithoutCallingDeepSeek()
     {
         var (socket, accountId) = await ConnectAndAuthenticateAsync();
