@@ -4,6 +4,11 @@ set -euo pipefail
 DOMAIN="vsngrp-bews.prothegee.dev"
 FE_ORIGIN="https://vsngrp-fec.prothegee.dev"
 EXPECTED_GIT_SHA="${1:-$(git rev-parse --short HEAD)}"
+CONFIG_PATH="${2:-}"
+if [ -z "$CONFIG_PATH" ]; then
+    echo "verify-deploy: FAIL, no config path given as \$2, cannot verify datastore auth"
+    exit 1
+fi
 
 echo "verify-deploy: checking TLS certificate for ${DOMAIN}"
 CERT_END_DATE=$(echo | openssl s_client -servername "$DOMAIN" -connect "${DOMAIN}:443" 2>/dev/null | openssl x509 -noout -enddate | cut -d= -f2)
@@ -58,5 +63,23 @@ if [ "$WS_STATUS" != "101" ]; then
     exit 1
 fi
 echo "verify-deploy: WS handshake ok, 101 Switching Protocols"
+
+echo "verify-deploy: checking own Redis connection auth"
+RD_CONN=$(python3 -c "import json; print(json.load(open('$CONFIG_PATH'))['redis']['connectionString'])")
+RD_PASSWORD=$(echo "$RD_CONN" | sed -n 's/.*password=//p')
+if ! docker exec vsngrp-core-be-ws-redis redis-cli -a "$RD_PASSWORD" --no-auth-warning PING | grep -q PONG; then
+    echo "verify-deploy: FAIL, own Redis connection auth failed, config.json's password does not match the live Redis instance"
+    exit 1
+fi
+echo "verify-deploy: own Redis connection auth ok"
+
+echo "verify-deploy: checking session Redis connection auth"
+SESSION_RD_CONN=$(python3 -c "import json; print(json.load(open('$CONFIG_PATH'))['sessionRedis']['connectionString'])")
+SESSION_RD_PASSWORD=$(echo "$SESSION_RD_CONN" | sed -n 's/.*password=//p')
+if ! docker exec vsngrp-core-be-redis redis-cli -a "$SESSION_RD_PASSWORD" --no-auth-warning PING | grep -q PONG; then
+    echo "verify-deploy: FAIL, session Redis connection auth failed, config.json's password does not match Core BE's live Redis instance"
+    exit 1
+fi
+echo "verify-deploy: session Redis connection auth ok"
 
 echo "verify-deploy: all checks passed"

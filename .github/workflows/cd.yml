@@ -42,6 +42,11 @@ jobs:
               exit 1
             fi
 
+            if ! docker network inspect vsngrp-core-be_default >/dev/null 2>&1; then
+              echo "deploy: ERROR, docker network vsngrp-core-be_default not found, deploy Core BE before this service"
+              exit 1
+            fi
+
             DEPLOY_PATH="${{ secrets.CORE_BE_WS_DEPLOY_PATH }}"
             if [ ! -d "$DEPLOY_PATH/.git" ]; then
               echo "deploy: $DEPLOY_PATH does not exist, cloning"
@@ -53,6 +58,7 @@ jobs:
             git checkout main-stable
             git reset --hard origin/main-stable
 
+            export REDIS_PASSWORD=$(printf '%s' "$CORE_BE_WS_SED_CONFIG_RD" | sed -n 's/.*password=//p')
             ./containers.sh up
 
             CONFIG_PATH="${{ secrets.CORE_BE_WS_CONFIG_PATH }}"
@@ -73,16 +79,10 @@ jobs:
               sed -i "s|\"corsAllowedOrigins\": \[.*\]|\"corsAllowedOrigins\": $CORE_BE_WS_SED_ALLOWED_ORIGINS|" "$CONFIG_PATH"
             }
 
-            if [ ! -f "$CONFIG_PATH" ]; then
-              echo "deploy: $CONFIG_PATH does not exist"
-              seed_config
-            elif ! config_is_valid_json; then
-              echo "deploy: $CONFIG_PATH is not valid JSON"
-              seed_config
-            fi
+            seed_config
 
             if ! config_is_valid_json; then
-              echo "deploy: ERROR, $CONFIG_PATH is still not valid JSON after reseeding, check the CORE_BE_WS_SED_* secrets for valid JSON syntax, e.g. corsAllowedOrigins needs quoted strings: [\"https://vsngrp-fec.prothegee.dev\"]"
+              echo "deploy: ERROR, $CONFIG_PATH is not valid JSON after seeding, check the CORE_BE_WS_SED_* secrets for valid JSON syntax, e.g. corsAllowedOrigins needs quoted strings: [\"https://vsngrp-fec.prothegee.dev\"]"
               exit 1
             fi
 
@@ -101,17 +101,21 @@ jobs:
               -v "$CONFIG_PATH":/app/config/config.json:ro \
               --restart unless-stopped \
               vsngrp-core-be-ws:latest
+            docker network connect vsngrp-core-be_default vsngrp-core-be-ws-app
 
             cp nginx/vsngrp-bews.conf "${{ secrets.PROXY_CONF_D_PATH }}/vsngrp-bews.conf"
             docker exec vsngrp-reverse-proxy nginx -s reload
 
       - name: verify deploy
         uses: appleboy/ssh-action@v1
+        env:
+          CORE_BE_WS_CONFIG_PATH: ${{ secrets.CORE_BE_WS_CONFIG_PATH }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_SSH_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          envs: CORE_BE_WS_CONFIG_PATH
           script: |
             set -euo pipefail
             cd ${{ secrets.CORE_BE_WS_DEPLOY_PATH }}
-            ./verify-deploy.sh
+            ./verify-deploy.sh "" "$CORE_BE_WS_CONFIG_PATH"
