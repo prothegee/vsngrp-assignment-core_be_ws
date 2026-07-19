@@ -1,5 +1,8 @@
 # Core BE WS
 
+[![ci](https://github.com/prothegee/vsngrp-assignment-core_be_ws/actions/workflows/ci.yml/badge.svg)](https://github.com/prothegee/vsngrp-assignment-core_be_ws/actions/workflows/ci.yml)
+[![cd](https://github.com/prothegee/vsngrp-assignment-core_be_ws/actions/workflows/cd.yml/badge.svg)](https://github.com/prothegee/vsngrp-assignment-core_be_ws/actions/workflows/cd.yml)
+
 Core BE WS is the chat service for the chat-bot product. It owns the WebSocket connection a signed-in account uses to talk to the chat bot: creating and managing conversations, streaming replies from DeepSeek, and keeping a bounded chat log per conversation.
 
 <br>
