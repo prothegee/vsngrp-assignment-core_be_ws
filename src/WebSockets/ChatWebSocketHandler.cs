@@ -19,6 +19,9 @@ public sealed class ChatWebSocketHandler(
 
     private const int ReceiveBufferSize = 8192;
 
+    private const string LanguageInstruction =
+        "Always reply in the same language the user's most recent message is written in. If the language is ambiguous or the message is very short, default to English.";
+
     public async Task HandleAsync(WebSocket webSocket, CancellationToken cancellationToken)
     {
         var accountId = await AuthenticateAsync(webSocket, cancellationToken);
@@ -265,7 +268,8 @@ public sealed class ChatWebSocketHandler(
         };
         await chatLogService.AppendAsync(accountId, request.ConversationId, userMessage);
 
-        var promptMessages = history.Append(userMessage).ToArray();
+        var systemMessage = new ChatMessage { Role = ChatMessageRole.System, Content = LanguageInstruction };
+        var promptMessages = new[] { systemMessage }.Concat(history).Append(userMessage).ToArray();
         var assembledContent = new StringBuilder();
         long? totalTokens = null;
 
