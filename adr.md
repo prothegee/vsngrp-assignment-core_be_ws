@@ -145,3 +145,35 @@ Reason: `network_mode: host` lets the proxy container reach `127.0.0.1:9002` exa
 Decision: `containers/redis/data/.gitkeep` is removed and no longer tracked, `.gitignore` still ignores everything else under that directory. `containers.sh up` now checks the Redis container is actually in the `Running` state after `docker compose up -d`, printing its own recent logs and exiting non-zero if it is not. The Redis service now also sets `restart: unless-stopped`, matching the app container and the reverse proxy, it had no restart policy before.
 
 Reason: same real bug hit on Core BE's identical `containers/redis/data/.gitkeep` pattern, the Redis image's entrypoint auto-fixes ownership on its mounted data directory at startup, but skips that step entirely the moment it finds any file it does not recognize there, exactly what a git-tracked `.gitkeep` is on an otherwise-empty fresh clone, causing a permission-denied crash right after startup. `docker compose up -d` only confirms a container process launched, not that it stayed up, so this class of crash is invisible to `cd.yml` unless something explicitly checks afterward. The verification helper (`all_running`) already existed in this script but had never actually been wired into `up`. Applied here even though this exact crash was only observed on Core BE, since both services share the identical `.gitkeep`-in-a-datastore-directory pattern and the identical risk.
+
+<br>
+
+## ADR 019: Redis connection secrets stay, but the host must be the container name, cross-service Redis reached via explicit network attach
+
+Decision: `CORE_BE_WS_SED_CONFIG_RD` and `CORE_BE_WS_SED_CONFIG_SESSION_RD` remain real secrets, `cd.yml` reads and seeds both exactly as before. Their host must be the actual container name (`vsngrp-core-be-ws-redis` for this service's own Redis, `vsngrp-core-be-redis` for Core BE's session Redis), not `127.0.0.1`. Right after starting the app container, `cd.yml` also runs `docker network connect vsngrp-core-be_default vsngrp-core-be-ws-app`, and fails the deploy immediately, before ever building anything, if Core BE's network does not exist yet, since reaching Core BE's Redis by container name requires actually being on Core BE's network, not just knowing its name.
+
+<br>
+
+## ADR 020: `config.json` regenerated every deploy, not seeded once
+
+Decision: `cd.yml` now runs `seed_config` unconditionally on every deploy instead of only when the file is missing or invalid. `config.json` is fully derived from `config/config.json.template` plus the current `CORE_BE_WS_SED_*` secrets, every single run, never hand-edited or preserved across deploys.
+
+Reason: the original "seed only if missing" design (matching Core BE's own ADR 011) let a stale or wrong value survive silently until someone remembered to manually delete `config.json` on the instance and trigger a redeploy, exactly what happened repeatedly on Core BE while chasing the connection-string bugs fixed in ADR 019, correcting a secret was not enough on its own. Regenerating every deploy is what makes updating a secret actually take effect without a manual SSH step, hand-editing `config.json` directly on the instance is no longer a supported way to change a value, it would just get overwritten on the next deploy anyway. Applied here to match Core BE even though this service had not yet hit the same symptom.
+
+Reason: this service's own `deployment.md` previously described reaching Core BE's session Redis "over the loopback interface", that was never actually true once the app container runs on its own Docker network instead of host networking, containers on different Docker networks cannot reach each other's `127.0.0.1`-bound ports at all, host loopback is private per container. The assumption went uncaught until Core BE hit the identical bug for its own Redis first (see ADR 017), at which point this service's variant, worse because it spans 2 separate Docker networks, not just 1, was checked directly rather than assumed away a second time.
+
+<br>
+
+## ADR 021: Both Redis instances require a password in production, local dev stays password-free
+
+Decision: `containers/docker-compose.yml`'s Redis service now takes `REDIS_PASSWORD` the same way Core BE's Postgres takes `POSTGRES_PASSWORD` (see Core BE's ADR 017/019), an env var substituted at compose-parse time, defaulting to empty when unset. `command` runs `redis-server --appendonly yes --requirepass "$REDIS_PASSWORD"`, an empty value disables auth, so local `debug.sh`/`containers.sh up` is unaffected. `cd.yml` extracts the password out of `CORE_BE_WS_SED_CONFIG_RD` (this service's own Redis) and exports it as `REDIS_PASSWORD` before `./containers.sh up`. `CORE_BE_WS_SED_CONFIG_RD` and `CORE_BE_WS_SED_CONFIG_SESSION_RD` both now carry a password inline as `host:port,password=...`, `SESSION_RD`'s password must be identical to Core BE's own `CORE_BE_SED_CONFIG_RD`, it is the same Redis instance.
+
+Reason: sir wants every datastore, Postgres and Redis alike, to require real authentication in production. A passwordless Redis reachable by anyone who can reach its container network was a real gap on both services, not a deliberate simplification, restricting the requirement to production only matches how Core BE's Postgres already worked.
+
+<br>
+
+## ADR 022: `verify-deploy.sh` authenticates against both Redis instances, not just checks JSON validity
+
+Decision: `verify-deploy.sh` now takes the live `config.json` path as a second argument, reads the actual `redis` and `sessionRedis` connection strings out of it, and attempts a real `redis-cli PING` via `docker exec` into `vsngrp-core-be-ws-redis` and `vsngrp-core-be-redis` respectively. Any auth failure fails the deploy step immediately, `cd.yml`'s "verify deploy" step now also passes `CORE_BE_WS_CONFIG_PATH` through as an env var for this purpose.
+
+Reason: `config_is_valid_json` only ever proved the file parses as JSON, it never proved the credentials inside it actually work against the live Redis instances, matching Core BE's own ADR 020, exactly the class of mistake that broke signup this round on the sibling service.
